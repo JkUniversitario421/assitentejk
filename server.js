@@ -64,6 +64,12 @@ app.post('/webhook', async (req, res) => {
 
       case 'obterLocal':
         estadoUsuario.local = req.body.queryResult.queryText;
+        console.log("Enviando para SheetDB:", {
+  nome: estadoUsuario.nome,
+  data: estadoUsuario.data,
+  local: estadoUsuario.local,
+  status: 'Aguardando Recebimento'
+});
         await axios.post(URL_SHEETDB_ENCOMENDAS, [{ nome: estadoUsuario.nome, data: estadoUsuario.data, local: estadoUsuario.local, status: 'Aguardando Recebimento' }]);
         respostaTexto = `Ok, ${estadoUsuario.nome}! Sua encomenda chegará no dia ${estadoUsuario.data} e foi comprada em ${estadoUsuario.local}.`;
         delete estadosUsuarios[idSessao];
