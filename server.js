@@ -6,13 +6,13 @@ const app = express();
 const port = process.env.PORT || 3000;
 app.use(bodyParser.json());
 
-const SHEETDB_API_URL = 'https://sheetdb.io/api/v1/YOUR_SHEETDB_ID';
+const SHEETDB_API_URL = 'https://sheetdb.io/api/v1/g6f3ljg6px6yr';
+const SHEETDB_LUZ_API_URL = 'https://sheetdb.io/api/v1/5m0rz0rmv8jmg';
 
 let userStates = {};
 
 app.post('/webhook', async (req, res) => {
   const sessionId = req.body.session || 'default';
-  const intent = req.body.queryResult.intent.displayName;
   const parameters = req.body.queryResult.parameters;
   const choice = parseInt(req.body.queryResult.queryText) || parameters.number || parameters.opcao;
   let responseText = '';
@@ -26,7 +26,7 @@ app.post('/webhook', async (req, res) => {
   try {
     switch (userState.stage) {
       case 'menu':
-        responseText = 'Escolha uma opção:\n1. Registrar Encomenda\n2. Consultar Encomendas\n3. Confirmar Recebimento';
+        responseText = 'Escolha uma opção:\n1. Registrar Encomenda\n2. Consultar Encomendas\n3. Confirmar Recebimento\n4. Registrar Conta de Luz';
         userState.stage = 'awaitingChoice';
         break;
 
@@ -41,8 +41,11 @@ app.post('/webhook', async (req, res) => {
         } else if (choice === 3) {
           userState.stage = 'confirmName';
           responseText = 'Qual o seu nome para confirmar o recebimento?';
+        } else if (choice === 4) {
+          userState.stage = 'getNameLuz';
+          responseText = 'Qual o seu nome para registrar a conta de luz?';
         } else {
-          responseText = 'Opção inválida. Escolha entre 1, 2 ou 3.';
+          responseText = 'Opção inválida. Escolha entre 1, 2, 3 ou 4.';
         }
         break;
 
@@ -87,6 +90,26 @@ app.post('/webhook', async (req, res) => {
           responseText = `Nenhuma encomenda pendente encontrada para ${parameters['nome']}.`;
         }
         delete userStates[sessionId];
+        break;
+
+      case 'getNameLuz':
+        if (!parameters['nome']) {
+          responseText = 'Por favor, informe seu nome para a conta de luz.';
+        } else {
+          userState.nome = parameters['nome'];
+          userState.stage = 'getValorLuz';
+          responseText = 'Qual o valor da conta de luz?';
+        }
+        break;
+
+      case 'getValorLuz':
+        if (!parameters['valor']) {
+          responseText = 'Por favor, informe o valor da conta de luz.';
+        } else {
+          await axios.post(SHEETDB_LUZ_API_URL, [{ nome: userState.nome, valor: parameters['valor'] }]);
+          responseText = `Conta de luz registrada:\nNome: ${userState.nome}\nValor: R$ ${parameters['valor']}`;
+          delete userStates[sessionId];
+        }
         break;
 
       default:
