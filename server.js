@@ -6,7 +6,7 @@ const app = express();
 const port = process.env.PORT || 3000;
 app.use(bodyParser.json());
 
-const SHEETDB_API_URL = 'https://sheetdb.io/api/v1/g6f3ljg6px6yr';
+const SHEETDB_API_URL = 'https://sheetdb.io/api/v1/YOUR_SHEETDB_ID';
 
 let userStates = {};
 
@@ -14,6 +14,7 @@ app.post('/webhook', async (req, res) => {
   const sessionId = req.body.session || 'default';
   const intent = req.body.queryResult.intent.displayName;
   const parameters = req.body.queryResult.parameters;
+  const choice = parseInt(req.body.queryResult.queryText) || parameters.number || parameters.opcao;
   let responseText = '';
 
   if (!userStates[sessionId]) {
@@ -30,7 +31,6 @@ app.post('/webhook', async (req, res) => {
         break;
 
       case 'awaitingChoice':
-        const choice = parameters.number || parameters.opcao;
         if (choice === 1) {
           userState.stage = 'getName';
           responseText = 'Qual o seu nome?';
