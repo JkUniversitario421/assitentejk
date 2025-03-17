@@ -6,7 +6,7 @@ const app = express();
 const port = process.env.PORT || 3000;
 app.use(bodyParser.json());
 
-const SHEETDB_API_URL = 'https://sheetdb.io/api/v1/YOUR_SHEETDB_ID';
+const SHEETDB_API_URL = 'https://sheetdb.io/api/v1/g6f3ljg6px6yr';
 
 let userStates = {};
 
