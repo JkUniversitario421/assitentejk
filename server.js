@@ -3,128 +3,111 @@ const bodyParser = require('body-parser');
 const axios = require('axios');
 
 const app = express();
-const port = process.env.PORT || 3000;
+const porta = process.env.PORT || 3000;
 app.use(bodyParser.json());
 
-const SHEETDB_API_URL = 'https://sheetdb.io/api/v1/g6f3ljg6px6yr';
-const SHEETDB_LUZ_API_URL = 'https://sheetdb.io/api/v1/5m0rz0rmv8jmg';
+const URL_SHEETDB_ENCOMENDAS = 'https://sheetdb.io/api/v1/g6f3ljg6px6yr';
+const URL_SHEETDB_LUZ = 'https://sheetdb.io/api/v1/5m0rz0rmv8jmg';
 
-let userStates = {};
+let estadosUsuarios = {};
 
 app.post('/webhook', async (req, res) => {
-  const sessionId = req.body.session || 'default';
-  const parameters = req.body.queryResult.parameters;
-  const choice = parseInt(req.body.queryResult.queryText) || parameters.number || parameters.opcao;
-  let responseText = '';
+  const idSessao = req.body.session || 'default';
+  const parametros = req.body.queryResult.parameters;
+  const escolha = parseInt(req.body.queryResult.queryText) || parametros.numero || parametros.opcao;
+  let respostaTexto = '';
 
-  if (!userStates[sessionId]) {
-    userStates[sessionId] = { stage: 'menu' };
+  if (!estadosUsuarios[idSessao]) {
+    estadosUsuarios[idSessao] = { etapa: 'menu' };
   }
 
-  const userState = userStates[sessionId];
+  const estadoUsuario = estadosUsuarios[idSessao];
 
   try {
-    switch (userState.stage) {
+    switch (estadoUsuario.etapa) {
       case 'menu':
-        responseText = 'Escolha uma opção:\n1. Registrar Encomenda\n2. Consultar Encomendas\n3. Confirmar Recebimento\n4. Registrar Conta de Luz';
-        userState.stage = 'awaitingChoice';
+        respostaTexto = 'Escolha uma opção:\n1. Registrar Encomenda\n2. Consultar Encomendas\n3. Confirmar Recebimento\n4. Registrar Conta de Luz';
+        estadoUsuario.etapa = 'aguardandoEscolha';
         break;
 
-      case 'awaitingChoice':
-        if (choice === 1) {
-          userState.stage = 'getName';
-          responseText = 'Qual o seu nome?';
-        } else if (choice === 2) {
-          const { data } = await axios.get(SHEETDB_API_URL);
-          responseText = data.length ? data.map(e => `Nome: ${e.nome}\nData Estimada: ${e.data}\nCompra em: ${e.local}\nStatus: ${e.status}`).join('\n\n') : 'Nenhuma encomenda encontrada.';
-          delete userStates[sessionId];
-        } else if (choice === 3) {
-          userState.stage = 'confirmName';
-          responseText = 'Qual o seu nome para confirmar o recebimento?';
-        } else if (choice === 4) {
-          userState.stage = 'getNameLuz';
-          responseText = 'Qual o seu nome para registrar a conta de luz?';
+      case 'aguardandoEscolha':
+        if (escolha === 1) {
+          estadoUsuario.etapa = 'obterNome';
+          respostaTexto = 'Qual o seu nome?';
+        } else if (escolha === 2) {
+          const { data } = await axios.get(URL_SHEETDB_ENCOMENDAS);
+          respostaTexto = data.length ? data.map(e => `Nome: ${e.nome}\nData Estimada: ${e.data}\nCompra em: ${e.local}\nStatus: ${e.status}`).join('\n\n') : 'Nenhuma encomenda encontrada.';
+          delete estadosUsuarios[idSessao];
+        } else if (escolha === 3) {
+          estadoUsuario.etapa = 'confirmarNome';
+          respostaTexto = 'Qual o seu nome para confirmar o recebimento?';
+        } else if (escolha === 4) {
+          estadoUsuario.etapa = 'obterNomeLuz';
+          respostaTexto = 'Qual o seu nome para registrar a conta de luz?';
         } else {
-          responseText = 'Opção inválida. Escolha entre 1, 2, 3 ou 4.';
+          respostaTexto = 'Opção inválida. Escolha entre 1, 2, 3 ou 4.';
         }
         break;
 
-      case 'getName':
-        if (!parameters['nome']) {
-          responseText = 'Por favor, informe seu nome.';
-        } else {
-          userState.nome = parameters['nome'];
-          userState.stage = 'getDate';
-          responseText = 'Qual a data estimada de entrega? (Ex: 18/03/2025)';
-        }
+      // Registrar Encomenda
+      case 'obterNome':
+        estadoUsuario.nome = req.body.queryResult.queryText;
+        estadoUsuario.etapa = 'obterData';
+        respostaTexto = 'Qual a data estimada de entrega? (Ex: 18/03/2025)';
         break;
 
-      case 'getDate':
-        if (!parameters['date']) {
-          responseText = 'Por favor, informe a data estimada de entrega.';
-        } else {
-          userState.data = parameters['date'];
-          userState.stage = 'getLocal';
-          responseText = 'Onde a compra foi realizada? (Ex: Amazon, Mercado Livre, Farmácia Delivery)';
-        }
+      case 'obterData':
+        estadoUsuario.data = req.body.queryResult.queryText;
+        estadoUsuario.etapa = 'obterLocal';
+        respostaTexto = 'Onde a compra foi realizada? (Ex: Amazon, Mercado Livre, Farmácia Delivery)';
         break;
 
-      case 'getLocal':
-        if (!parameters['local']) {
-          responseText = 'Por favor, informe onde a compra foi realizada.';
-        } else {
-          userState.local = parameters['local'];
-          await axios.post(SHEETDB_API_URL, [{ nome: userState.nome, data: userState.data, local: userState.local, status: 'Aguardando Recebimento' }]);
-          responseText = `Encomenda registrada:\nNome: ${userState.nome}\nData Estimada: ${userState.data}\nCompra em: ${userState.local}`;
-          delete userStates[sessionId];
-        }
+      case 'obterLocal':
+        estadoUsuario.local = req.body.queryResult.queryText;
+        await axios.post(URL_SHEETDB_ENCOMENDAS, [{ nome: estadoUsuario.nome, data: estadoUsuario.data, local: estadoUsuario.local, status: 'Aguardando Recebimento' }]);
+        respostaTexto = `Ok, ${estadoUsuario.nome}! Sua encomenda chegará no dia ${estadoUsuario.data} e foi comprada em ${estadoUsuario.local}.`;
+        delete estadosUsuarios[idSessao];
         break;
 
-      case 'confirmName':
-        const { data: encomendas } = await axios.get(SHEETDB_API_URL);
-        const encomenda = encomendas.find(e => e.nome === parameters['nome'] && e.status === 'Aguardando Recebimento');
+      // Confirmar Recebimento
+      case 'confirmarNome':
+        const { data: encomendas } = await axios.get(URL_SHEETDB_ENCOMENDAS);
+        const encomenda = encomendas.find(e => e.nome === req.body.queryResult.queryText && e.status === 'Aguardando Recebimento');
         if (encomenda) {
-          await axios.patch(`${SHEETDB_API_URL}/nome/${encodeURIComponent(parameters['nome'])}`, { status: 'Recebida' });
-          responseText = `Recebimento confirmado para ${parameters['nome']}.`;
+          await axios.patch(`${URL_SHEETDB_ENCOMENDAS}/nome/${encodeURIComponent(req.body.queryResult.queryText)}`, { status: 'Recebida' });
+          respostaTexto = `Recebimento confirmado para ${req.body.queryResult.queryText}.`;
         } else {
-          responseText = `Nenhuma encomenda pendente encontrada para ${parameters['nome']}.`;
+          respostaTexto = `Nenhuma encomenda pendente encontrada para ${req.body.queryResult.queryText}.`;
         }
-        delete userStates[sessionId];
+        delete estadosUsuarios[idSessao];
         break;
 
-      case 'getNameLuz':
-        if (!parameters['nome']) {
-          responseText = 'Por favor, informe seu nome para a conta de luz.';
-        } else {
-          userState.nome = parameters['nome'];
-          userState.stage = 'getValorLuz';
-          responseText = 'Qual o valor da conta de luz?';
-        }
+      // Registrar Conta de Luz
+      case 'obterNomeLuz':
+        estadoUsuario.nome = req.body.queryResult.queryText;
+        estadoUsuario.etapa = 'obterValorLuz';
+        respostaTexto = 'Qual o valor da conta de luz?';
         break;
 
-      case 'getValorLuz':
-        if (!parameters['valor']) {
-          responseText = 'Por favor, informe o valor da conta de luz.';
-        } else {
-          await axios.post(SHEETDB_LUZ_API_URL, [{ nome: userState.nome, valor: parameters['valor'] }]);
-          responseText = `Conta de luz registrada:\nNome: ${userState.nome}\nValor: R$ ${parameters['valor']}`;
-          delete userStates[sessionId];
-        }
+      case 'obterValorLuz':
+        await axios.post(URL_SHEETDB_LUZ, [{ nome: estadoUsuario.nome, valor: req.body.queryResult.queryText }]);
+        respostaTexto = `Conta de luz registrada:\nNome: ${estadoUsuario.nome}\nValor: R$ ${req.body.queryResult.queryText}`;
+        delete estadosUsuarios[idSessao];
         break;
 
       default:
-        responseText = 'Algo deu errado, tente novamente.';
-        delete userStates[sessionId];
+        respostaTexto = 'Algo deu errado, tente novamente.';
+        delete estadosUsuarios[idSessao];
     }
   } catch (error) {
     console.error('Erro:', error);
-    responseText = 'Ocorreu um erro, tente novamente mais tarde.';
-    delete userStates[sessionId];
+    respostaTexto = 'Ocorreu um erro, tente novamente mais tarde.';
+    delete estadosUsuarios[idSessao];
   }
 
-  res.json({ fulfillmentText: responseText });
+  res.json({ fulfillmentText: respostaTexto });
 });
 
-app.listen(port, () => {
-  console.log(`Assistente virtual rodando na porta ${port}`);
+app.listen(porta, () => {
+  console.log(`Assistente virtual rodando na porta ${porta}`);
 });
