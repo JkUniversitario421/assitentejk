@@ -14,7 +14,7 @@ let estadosUsuarios = {};
 app.post('/webhook', async (req, res) => {
   const idSessao = req.body.session || 'default';
   const parametros = req.body.queryResult.parameters;
-  const escolha = parseInt(req.body.queryResult.queryText) || parametros.numero || parametros.opcao;
+  const escolha = parseInt(req.body.queryResult.queryText, 10) || parametros.numero || parametros.opcao;
   let respostaTexto = '';
 
   if (!estadosUsuarios[idSessao]) {
@@ -44,11 +44,10 @@ app.post('/webhook', async (req, res) => {
           estadoUsuario.etapa = 'obterNomeLuz';
           respostaTexto = 'Qual o seu nome para registrar a conta de luz?';
         } else {
-          respostaTexto = 'Opção inválida. Escolha entre 1, 2, 3 ou 4.';
+          respostaTexto = 'Opção inválida. Escolha entre 0, 1, 2, 3 ou 4.';
         }
         break;
 
-      // Registrar Encomenda
       case 'obterNome':
         estadoUsuario.nome = req.body.queryResult.queryText;
         estadoUsuario.etapa = 'obterData';
@@ -68,7 +67,6 @@ app.post('/webhook', async (req, res) => {
         delete estadosUsuarios[idSessao];
         break;
 
-      // Confirmar Recebimento
       case 'confirmarNome':
         const { data: encomendas } = await axios.get(URL_SHEETDB_ENCOMENDAS);
         const encomenda = encomendas.find(e => e.nome === req.body.queryResult.queryText && e.status === 'Aguardando Recebimento');
@@ -81,7 +79,6 @@ app.post('/webhook', async (req, res) => {
         delete estadosUsuarios[idSessao];
         break;
 
-      // Registrar Conta de Luz
       case 'obterNomeLuz':
         estadoUsuario.nome = req.body.queryResult.queryText;
         estadoUsuario.etapa = 'obterValorLuz';
