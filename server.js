@@ -31,7 +31,10 @@ app.post('/webhook', async (req, res) => {
         break;
 
       case 'aguardandoEscolha':
-        if (escolha === 1) {
+        if(escolha === 0) {
+          menu.etapa = 'Menu' ;
+        } if (escolha === 0)
+        else if (escolha === 1) {
           estadoUsuario.etapa = 'obterNome';
           respostaTexto = 'Qual o seu nome?';
         } else if (escolha === 2) {
