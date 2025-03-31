@@ -44,10 +44,11 @@ app.post('/webhook', async (req, res) => {
           estadoUsuario.etapa = 'obterNomeLuz';
           respostaTexto = 'Qual o seu nome para registrar a conta de luz?';
         } else {
-          respostaTexto = 'Opção inválida. Escolha entre 0, 1, 2, 3 ou 4.';
+          respostaTexto = 'Opção inválida. Escolha entre 1, 2, 3 ou 4.';
         }
         break;
 
+      // Registrar Encomenda
       case 'obterNome':
         estadoUsuario.nome = req.body.queryResult.queryText;
         estadoUsuario.etapa = 'obterData';
@@ -62,16 +63,12 @@ app.post('/webhook', async (req, res) => {
 
       case 'obterLocal':
         estadoUsuario.local = req.body.queryResult.queryText;
-        await axios.post(URL_SHEETDB_ENCOMENDAS, [{
-          nome: estadoUsuario.nome,
-          data: estadoUsuario.data,
-          local: estadoUsuario.local,
-          status: 'Aguardando Recebimento'
-        }]);
+        await axios.post(URL_SHEETDB_ENCOMENDAS, [{ nome: estadoUsuario.nome, data: estadoUsuario.data, local: estadoUsuario.local, status: 'Aguardando Recebimento' }]);
         respostaTexto = `Ok, ${estadoUsuario.nome}! Sua encomenda chegará no dia ${estadoUsuario.data} e foi comprada em ${estadoUsuario.local}.`;
         delete estadosUsuarios[idSessao];
         break;
 
+      // Confirmar Recebimento
       case 'confirmarNome':
         const { data: encomendas } = await axios.get(URL_SHEETDB_ENCOMENDAS);
         const encomenda = encomendas.find(e => e.nome === req.body.queryResult.queryText && e.status === 'Aguardando Recebimento');
@@ -84,6 +81,7 @@ app.post('/webhook', async (req, res) => {
         delete estadosUsuarios[idSessao];
         break;
 
+      // Registrar Conta de Luz
       case 'obterNomeLuz':
         estadoUsuario.nome = req.body.queryResult.queryText;
         estadoUsuario.etapa = 'obterValorLuz';
