@@ -26,15 +26,11 @@ app.post('/webhook', async (req, res) => {
   try {
     switch (estadoUsuario.etapa) {
       case 'menu':
-        respostaTexto = 'Escolha uma opção:\n1. Registrar Encomenda\n2. Consultar Encomendas\n3. Confirmar Recebimento\n4. Registrar Conta de Luz';
-        estadoUsuario.etapa = 'aguardandoEscolha';
-        break;
-
       case 'aguardandoEscolha':
-        if(escolha === 0) {
-          menu.etapa = 'Menu' ;
-        } if (escolha === 0)
-        else if (escolha === 1) {
+        if (escolha === 0) {
+          respostaTexto = 'Escolha uma opção:\n1. Registrar Encomenda\n2. Consultar Encomendas\n3. Confirmar Recebimento\n4. Registrar Conta de Luz';
+          estadoUsuario.etapa = 'aguardandoEscolha';
+        } else if (escolha === 1) {
           estadoUsuario.etapa = 'obterNome';
           respostaTexto = 'Qual o seu nome?';
         } else if (escolha === 2) {
@@ -48,7 +44,7 @@ app.post('/webhook', async (req, res) => {
           estadoUsuario.etapa = 'obterNomeLuz';
           respostaTexto = 'Qual o seu nome para registrar a conta de luz?';
         } else {
-          respostaTexto = 'Opção inválida. Escolha entre 1, 2, 3 ou 4.';
+          respostaTexto = 'Opção inválida. Escolha entre 0, 1, 2, 3 ou 4.';
         }
         break;
 
@@ -67,56 +63,5 @@ app.post('/webhook', async (req, res) => {
 
       case 'obterLocal':
         estadoUsuario.local = req.body.queryResult.queryText;
-        console.log("Enviando para SheetDB:", {
-  nome: estadoUsuario.nome,
-  data: estadoUsuario.data,
-  local: estadoUsuario.local,
-  status: 'Aguardando Recebimento'
-});
-        await axios.post(URL_SHEETDB_ENCOMENDAS, [{ nome: estadoUsuario.nome, data: estadoUsuario.data, local: estadoUsuario.local, status: 'Aguardando Recebimento' }]);
-        respostaTexto = `Ok, ${estadoUsuario.nome}! Sua encomenda chegará no dia ${estadoUsuario.data} e foi comprada em ${estadoUsuario.local}.`;
-        delete estadosUsuarios[idSessao];
-        break;
-
-      // Confirmar Recebimento
-      case 'confirmarNome':
-        const { data: encomendas } = await axios.get(URL_SHEETDB_ENCOMENDAS);
-        const encomenda = encomendas.find(e => e.nome === req.body.queryResult.queryText && e.status === 'Aguardando Recebimento');
-        if (encomenda) {
-          await axios.patch(`${URL_SHEETDB_ENCOMENDAS}/nome/${encodeURIComponent(req.body.queryResult.queryText)}`, { status: 'Recebida' });
-          respostaTexto = `Recebimento confirmado para ${req.body.queryResult.queryText}.`;
-        } else {
-          respostaTexto = `Nenhuma encomenda pendente encontrada para ${req.body.queryResult.queryText}.`;
-        }
-        delete estadosUsuarios[idSessao];
-        break;
-
-      // Registrar Conta de Luz
-      case 'obterNomeLuz':
-        estadoUsuario.nome = req.body.queryResult.queryText;
-        estadoUsuario.etapa = 'obterValorLuz';
-        respostaTexto = 'Qual o valor da conta de luz?';
-        break;
-
-      case 'obterValorLuz':
-        await axios.post(URL_SHEETDB_LUZ, [{ nome: estadoUsuario.nome, valor: req.body.queryResult.queryText }]);
-        respostaTexto = `Conta de luz registrada:\nNome: ${estadoUsuario.nome}\nValor: R$ ${req.body.queryResult.queryText}`;
-        delete estadosUsuarios[idSessao];
-        break;
-
-      default:
-        respostaTexto = 'Algo deu errado, tente novamente.';
-        delete estadosUsuarios[idSessao];
-    }
-  } catch (error) {
-    console.error('Erro:', error);
-    respostaTexto = 'Ocorreu um erro, tente novamente mais tarde.';
-    delete estadosUsuarios[idSessao];
-  }
-
-  res.json({ fulfillmentText: respostaTexto });
-});
-
-app.listen(porta, () => {
-  console.log(`Assistente virtual rodando na porta ${porta}`);
-});
+        await axios.post
+        
