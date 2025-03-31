@@ -48,7 +48,6 @@ app.post('/webhook', async (req, res) => {
         }
         break;
 
-      // Registrar Encomenda
       case 'obterNome':
         estadoUsuario.nome = req.body.queryResult.queryText;
         estadoUsuario.etapa = 'obterData';
@@ -63,5 +62,53 @@ app.post('/webhook', async (req, res) => {
 
       case 'obterLocal':
         estadoUsuario.local = req.body.queryResult.queryText;
-        await axios.post
-        
+        await axios.post(URL_SHEETDB_ENCOMENDAS, [{
+          nome: estadoUsuario.nome,
+          data: estadoUsuario.data,
+          local: estadoUsuario.local,
+          status: 'Aguardando Recebimento'
+        }]);
+        respostaTexto = `Ok, ${estadoUsuario.nome}! Sua encomenda chegará no dia ${estadoUsuario.data} e foi comprada em ${estadoUsuario.local}.`;
+        delete estadosUsuarios[idSessao];
+        break;
+
+      case 'confirmarNome':
+        const { data: encomendas } = await axios.get(URL_SHEETDB_ENCOMENDAS);
+        const encomenda = encomendas.find(e => e.nome === req.body.queryResult.queryText && e.status === 'Aguardando Recebimento');
+        if (encomenda) {
+          await axios.patch(`${URL_SHEETDB_ENCOMENDAS}/nome/${encodeURIComponent(req.body.queryResult.queryText)}`, { status: 'Recebida' });
+          respostaTexto = `Recebimento confirmado para ${req.body.queryResult.queryText}.`;
+        } else {
+          respostaTexto = `Nenhuma encomenda pendente encontrada para ${req.body.queryResult.queryText}.`;
+        }
+        delete estadosUsuarios[idSessao];
+        break;
+
+      case 'obterNomeLuz':
+        estadoUsuario.nome = req.body.queryResult.queryText;
+        estadoUsuario.etapa = 'obterValorLuz';
+        respostaTexto = 'Qual o valor da conta de luz?';
+        break;
+
+      case 'obterValorLuz':
+        await axios.post(URL_SHEETDB_LUZ, [{ nome: estadoUsuario.nome, valor: req.body.queryResult.queryText }]);
+        respostaTexto = `Conta de luz registrada:\nNome: ${estadoUsuario.nome}\nValor: R$ ${req.body.queryResult.queryText}`;
+        delete estadosUsuarios[idSessao];
+        break;
+
+      default:
+        respostaTexto = 'Algo deu errado, tente novamente.';
+        delete estadosUsuarios[idSessao];
+    }
+  } catch (error) {
+    console.error('Erro:', error);
+    respostaTexto = 'Ocorreu um erro, tente novamente mais tarde.';
+    delete estadosUsuarios[idSessao];
+  }
+
+  res.json({ fulfillmentText: respostaTexto });
+});
+
+app.listen(porta, () => {
+  console.log(`Assistente virtual rodando na porta ${porta}`);
+});
