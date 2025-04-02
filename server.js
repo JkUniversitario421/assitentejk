@@ -28,7 +28,7 @@ app.post('/webhook', async (req, res) => {
       case 'menu':
       case 'aguardandoEscolha':
         if (escolha === 0) {
-          respostaTexto = 'Escolha uma opção:\n1. Registrar Encomenda\n2. Consultar Encomendas\n3. Confirmar Recebimento\n4. Registrar Conta de Luz';
+          respostaTexto = 'Escolha uma opção:\n1. Registrar Encomenda\n2. Consultar Encomendas\n3. Confirmar Recebimento';
           estadoUsuario.etapa = 'aguardandoEscolha';
         } else if (escolha === 1) {
           estadoUsuario.etapa = 'obterNome';
@@ -39,7 +39,7 @@ app.post('/webhook', async (req, res) => {
           delete estadosUsuarios[idSessao];
         } else if (escolha === 3) {
           estadoUsuario.etapa = 'confirmarNome';
-          respostaTexto = 'Qual o seu nome para confirmar o recebimento?';
+          respostaTexto = 'De wuem é essa encomenda?';
         } else if (escolha === 4) {
           estadoUsuario.etapa = 'obterNomeLuz';
           respostaTexto = 'Qual o seu nome para registrar a conta de luz?';
