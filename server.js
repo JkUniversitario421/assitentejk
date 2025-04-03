@@ -14,7 +14,7 @@ let estadosUsuarios = {};
 app.post('/webhook', async (req, res) => {
   const idSessao = req.body.session || 'default';
   const parametros = req.body.queryResult.parameters;
-  const escolha = parseInt(req.body.queryResult.queryText, 10) || parametros.numero || parametros.opcao;
+  const escolha = req.body.queryResult.queryText !== undefined ? parseInt(req.body.queryResult.queryText, 10) : (parametros.numero || parametros.opcao);
   let respostaTexto = '';
 
   if (!estadosUsuarios[idSessao]) {
@@ -39,7 +39,7 @@ app.post('/webhook', async (req, res) => {
           delete estadosUsuarios[idSessao];
         } else if (escolha === 3) {
           estadoUsuario.etapa = 'confirmarNome';
-          respostaTexto = 'De wuem é essa encomenda?';
+          respostaTexto = 'De quem é essa encomenda?';
         } else if (escolha === 4) {
           estadoUsuario.etapa = 'obterNomeLuz';
           respostaTexto = 'Qual o seu nome para registrar a conta de luz?';
