@@ -44,7 +44,7 @@ app.post('/webhook', async (req, res) => {
           estadoUsuario.etapa = 'obterNomeLuz';
           respostaTexto = 'Qual o seu nome para registrar a conta de luz?';
         } else {
-          respostaTexto = 'Opção inválida. Escolha entre 0, 1, 2, 3 ou 4.';
+          respostaTexto = 'Opção inválida. Escolha entre 0, 1, 2 ou 3';
         }
         break;
 
