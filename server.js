@@ -53,7 +53,7 @@ app.post('/webhook', async (req, res) => {
         } else {
           // Comandos por texto
           if (textoUsuario.includes('encomenda')) {
-            respostaTexto = 'Escolha uma opção:\n1. Registrar Encomenda\n2. Consultar Encomendas\n3. Confirmar Recebimento\n4. Registrar Conta de Luz';
+            respostaTexto = 'Escolha uma opção:\n1. Registrar Encomenda\n2. Consultar Encomendas\n3. Confirmar Recebimento';
             estadoUsuario.etapa = 'aguardandoEscolha';
           } else if (textoUsuario.includes('consultar')) {
             const { data } = await axios.get(URL_SHEETDB_ENCOMENDAS);
@@ -65,7 +65,7 @@ app.post('/webhook', async (req, res) => {
             estadoUsuario.etapa = 'confirmarNome';
             respostaTexto = 'De quem é essa encomenda?';
           } else {
-            respostaTexto = 'Opção inválida. Escolha entre 0, 1, 2, 3 ou 4';
+            respostaTexto = 'Opção inválida. Escolha entre 0, 1, 2 ou 3';
           }
         }
         break;
@@ -73,7 +73,7 @@ app.post('/webhook', async (req, res) => {
       case 'obterNome':
         estadoUsuario.nome = req.body.queryResult.queryText;
         estadoUsuario.etapa = 'obterData';
-        respostaTexto = 'Qual a data estimada de entrega? (Ex: 18/03/2025)';
+        respostaTexto = 'Qual a data estimada de entrega? (Ex: dia/mês/ano)';
         break;
 
       case 'obterData':
