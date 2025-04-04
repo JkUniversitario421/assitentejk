@@ -28,14 +28,24 @@ app.post('/webhook', async (req, res) => {
       case 'menu':
       case 'aguardandoEscolha':
         if (escolha === 0) {
-          respostaTexto = 'Escolha uma opção:\n1. Registrar Encomenda\n2. Consultar Encomendas\n3. Confirmar Recebimento';
+          respostaTexto = 'Escolha uma opção:\n1. Registrar Encomenda\n2. Consultar Encomendas\n3. Confirmar Recebimento\n4. Registrar Conta de Luz';
           estadoUsuario.etapa = 'aguardandoEscolha';
         } else if (escolha === 1) {
           estadoUsuario.etapa = 'obterNome';
           respostaTexto = 'Qual o seu nome?';
         } else if (escolha === 2) {
           const { data } = await axios.get(URL_SHEETDB_ENCOMENDAS);
-          respostaTexto = data.length ? data.map(e => `Nome: ${e.nome}\nData Estimada: ${e.data}\nCompra em: ${e.local}\nStatus: ${e.status}`).join('\n\n') : 'Nenhuma encomenda encontrada.';
+          if (data.length) {
+            respostaTexto = data.map(e => {
+              let texto = `Nome: ${e.nome}\nData Estimada: ${e.data}\nCompra em: ${e.local}\nStatus: ${e.status}`;
+              if (e.status === 'Recebida' && e.recebedor) {
+                texto += `\nRecebida por: ${e.recebedor}`;
+              }
+              return texto;
+            }).join('\n\n');
+          } else {
+            respostaTexto = 'Nenhuma encomenda encontrada.';
+          }
           delete estadosUsuarios[idSessao];
         } else if (escolha === 3) {
           estadoUsuario.etapa = 'confirmarNome';
@@ -44,7 +54,7 @@ app.post('/webhook', async (req, res) => {
           estadoUsuario.etapa = 'obterNomeLuz';
           respostaTexto = 'Qual o seu nome para registrar a conta de luz?';
         } else {
-          respostaTexto = 'Opção inválida. Escolha entre 0, 1, 2, 3 ou 4.';
+          respostaTexto = 'Opção inválida. Escolha entre 0, 1, 2, 3 ou 4';
         }
         break;
 
@@ -73,26 +83,27 @@ app.post('/webhook', async (req, res) => {
         break;
 
       case 'confirmarNome':
-        estadoUsuario.donoEncomenda = req.body.queryResult.queryText;
-        const { data: encomendas } = await axios.get(URL_SHEETDB_ENCOMENDAS);
-        const encomenda = encomendas.find(e => e.nome === estadoUsuario.donoEncomenda && e.status === 'Aguardando Recebimento');
-
-        if (encomenda) {
-          estadoUsuario.etapa = 'confirmarRecebedor';
-          respostaTexto = `Ok! Quem recebeu a encomenda de ${estadoUsuario.donoEncomenda}?`;
-        } else {
-          respostaTexto = `Nenhuma encomenda pendente encontrada para ${estadoUsuario.donoEncomenda}.`;
-          delete estadosUsuarios[idSessao];
-        }
+        estadoUsuario.encomendaPara = req.body.queryResult.queryText;
+        estadoUsuario.etapa = 'confirmarRecebedor';
+        respostaTexto = 'Qual o seu nome? (Quem está recebendo a encomenda?)';
         break;
 
       case 'confirmarRecebedor':
         estadoUsuario.recebedor = req.body.queryResult.queryText;
-        await axios.patch(`${URL_SHEETDB_ENCOMENDAS}/nome/${encodeURIComponent(estadoUsuario.donoEncomenda)}`, {
-          status: 'Recebida',
-          recebedor: estadoUsuario.recebedor
-        });
-        respostaTexto = `Recebimento confirmado! A encomenda de ${estadoUsuario.donoEncomenda} foi recebida por ${estadoUsuario.recebedor}.`;
+
+        const { data: lista } = await axios.get(URL_SHEETDB_ENCOMENDAS);
+        const encomendaIndex = lista.findIndex(e => e.nome === estadoUsuario.encomendaPara && e.status === 'Aguardando Recebimento');
+
+        if (encomendaIndex !== -1) {
+          await axios.patch(`${URL_SHEETDB_ENCOMENDAS}/nome/${encodeURIComponent(estadoUsuario.encomendaPara)}`, {
+            status: 'Recebida',
+            recebedor: estadoUsuario.recebedor
+          });
+          respostaTexto = `Recebimento confirmado! A encomenda de ${estadoUsuario.encomendaPara} foi recebida por ${estadoUsuario.recebedor}.`;
+        } else {
+          respostaTexto = `Não encontrei nenhuma encomenda pendente para ${estadoUsuario.encomendaPara}.`;
+        }
+
         delete estadosUsuarios[idSessao];
         break;
 
@@ -127,4 +138,4 @@ app.post('/webhook', async (req, res) => {
 app.listen(porta, () => {
   console.log(`Assistente virtual rodando na porta ${porta}`);
 });
-          
+    
