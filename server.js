@@ -13,23 +13,23 @@ let estadosUsuarios = {};
 
 app.post('/webhook', async (req, res) => {
   const idSessao = req.body.session || 'default';
+  const textoUsuario = req.body.queryResult.queryText;
   const parametros = req.body.queryResult.parameters;
-  const escolha = req.body.queryResult.queryText !== undefined ? parseInt(req.body.queryResult.queryText, 10) : (parametros.numero || parametros.opcao);
-  let respostaTexto = '';
 
   if (!estadosUsuarios[idSessao]) {
-    estadosUsuarios[idSessao] = { etapa: 'menu' };
+    estadosUsuarios[idSessao] = { etapa: 'aguardandoEscolha' };
   }
 
   const estadoUsuario = estadosUsuarios[idSessao];
+  let respostaTexto = '';
 
   try {
     switch (estadoUsuario.etapa) {
-      case 'menu':
       case 'aguardandoEscolha':
-        if (escolha === 0) {
+        const escolha = parseInt(textoUsuario, 10);
+
+        if (textoUsuario === '0') {
           respostaTexto = 'Escolha uma opção:\n1. Registrar Encomenda\n2. Consultar Encomendas\n3. Confirmar Recebimento\n4. Registrar Conta de Luz';
-          estadoUsuario.etapa = 'aguardandoEscolha';
         } else if (escolha === 1) {
           estadoUsuario.etapa = 'obterNome';
           respostaTexto = 'Qual o seu nome?';
@@ -37,11 +37,8 @@ app.post('/webhook', async (req, res) => {
           const { data } = await axios.get(URL_SHEETDB_ENCOMENDAS);
           if (data.length) {
             respostaTexto = data.map(e => {
-              let texto = `Nome: ${e.nome}\nData Estimada: ${e.data}\nCompra em: ${e.local}\nStatus: ${e.status}`;
-              if (e.status === 'Recebida' && e.recebedor) {
-                texto += `\nRecebida por: ${e.recebedor}`;
-              }
-              return texto;
+              const recebidoPor = e.recebido_por ? `\nRecebido por: ${e.recebido_por}` : '';
+              return `Nome: ${e.nome}\nData Estimada: ${e.data}\nCompra em: ${e.local}\nStatus: ${e.status}${recebidoPor}`;
             }).join('\n\n');
           } else {
             respostaTexto = 'Nenhuma encomenda encontrada.';
@@ -59,19 +56,19 @@ app.post('/webhook', async (req, res) => {
         break;
 
       case 'obterNome':
-        estadoUsuario.nome = req.body.queryResult.queryText;
+        estadoUsuario.nome = textoUsuario;
         estadoUsuario.etapa = 'obterData';
         respostaTexto = 'Qual a data estimada de entrega? (Ex: 18/03/2025)';
         break;
 
       case 'obterData':
-        estadoUsuario.data = req.body.queryResult.queryText;
+        estadoUsuario.data = textoUsuario;
         estadoUsuario.etapa = 'obterLocal';
         respostaTexto = 'Onde a compra foi realizada? (Ex: Amazon, Mercado Livre, Farmácia Delivery)';
         break;
 
       case 'obterLocal':
-        estadoUsuario.local = req.body.queryResult.queryText;
+        estadoUsuario.local = textoUsuario;
         await axios.post(URL_SHEETDB_ENCOMENDAS, [{
           nome: estadoUsuario.nome,
           data: estadoUsuario.data,
@@ -83,32 +80,31 @@ app.post('/webhook', async (req, res) => {
         break;
 
       case 'confirmarNome':
-        estadoUsuario.encomendaPara = req.body.queryResult.queryText;
+        estadoUsuario.nomeEncomenda = textoUsuario;
         estadoUsuario.etapa = 'confirmarRecebedor';
-        respostaTexto = 'Qual o seu nome? (Quem está recebendo a encomenda?)';
+        respostaTexto = 'Qual o seu nome (quem está recebendo)?';
         break;
 
       case 'confirmarRecebedor':
-        estadoUsuario.recebedor = req.body.queryResult.queryText;
+        const nomeEncomenda = estadoUsuario.nomeEncomenda;
+        const nomeRecebedor = textoUsuario;
+        const { data: encomendas } = await axios.get(URL_SHEETDB_ENCOMENDAS);
+        const encomenda = encomendas.find(e => e.nome === nomeEncomenda && e.status === 'Aguardando Recebimento');
 
-        const { data: lista } = await axios.get(URL_SHEETDB_ENCOMENDAS);
-        const encomendaIndex = lista.findIndex(e => e.nome === estadoUsuario.encomendaPara && e.status === 'Aguardando Recebimento');
-
-        if (encomendaIndex !== -1) {
-          await axios.patch(`${URL_SHEETDB_ENCOMENDAS}/nome/${encodeURIComponent(estadoUsuario.encomendaPara)}`, {
+        if (encomenda) {
+          await axios.patch(`${URL_SHEETDB_ENCOMENDAS}/nome/${encodeURIComponent(nomeEncomenda)}`, {
             status: 'Recebida',
-            recebedor: estadoUsuario.recebedor
+            recebido_por: nomeRecebedor
           });
-          respostaTexto = `Recebimento confirmado! A encomenda de ${estadoUsuario.encomendaPara} foi recebida por ${estadoUsuario.recebedor}.`;
+          respostaTexto = `Recebimento confirmado!\nEncomenda de ${nomeEncomenda} recebida por ${nomeRecebedor}.`;
         } else {
-          respostaTexto = `Não encontrei nenhuma encomenda pendente para ${estadoUsuario.encomendaPara}.`;
+          respostaTexto = `Nenhuma encomenda pendente encontrada para ${nomeEncomenda}.`;
         }
-
         delete estadosUsuarios[idSessao];
         break;
 
       case 'obterNomeLuz':
-        estadoUsuario.nome = req.body.queryResult.queryText;
+        estadoUsuario.nome = textoUsuario;
         estadoUsuario.etapa = 'obterValorLuz';
         respostaTexto = 'Qual o valor da conta de luz?';
         break;
@@ -116,9 +112,9 @@ app.post('/webhook', async (req, res) => {
       case 'obterValorLuz':
         await axios.post(URL_SHEETDB_LUZ, [{
           nome: estadoUsuario.nome,
-          valor: req.body.queryResult.queryText
+          valor: textoUsuario
         }]);
-        respostaTexto = `Conta de luz registrada:\nNome: ${estadoUsuario.nome}\nValor: R$ ${req.body.queryResult.queryText}`;
+        respostaTexto = `Conta de luz registrada:\nNome: ${estadoUsuario.nome}\nValor: R$ ${textoUsuario}`;
         delete estadosUsuarios[idSessao];
         break;
 
@@ -138,4 +134,3 @@ app.post('/webhook', async (req, res) => {
 app.listen(porta, () => {
   console.log(`Assistente virtual rodando na porta ${porta}`);
 });
-    
