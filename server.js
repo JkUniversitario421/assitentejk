@@ -11,6 +11,16 @@ const URL_SHEETDB_LUZ = 'https://sheetdb.io/api/v1/5m0rz0rmv8jmg';
 
 let estadosUsuarios = {};
 
+// Função para detectar palavras relacionadas a encomendas/entregas
+function verificaPalavrasChave(texto) {
+  const palavrasChave = [
+    'encomenda', 'entrega', 'chegou', 'chegar', 'chegada',
+    'recebi', 'recebida', 'recebido', 'entregou', 'trouxe',
+    'vai chegar', 'foi entregue', 'pode receber'
+  ];
+  return palavrasChave.some(palavra => texto.includes(palavra));
+}
+
 app.post('/webhook', async (req, res) => {
   const idSessao = req.body.session || 'default';
   const textoUsuario = req.body.queryResult.queryText?.toLowerCase() || '';
@@ -51,8 +61,7 @@ app.post('/webhook', async (req, res) => {
             respostaTexto = 'Opção inválida. Escolha entre 0, 1, 2 ou 3';
           }
         } else {
-          // Comandos por texto
-          if (textoUsuario.includes('encomenda')) {
+          if (verificaPalavrasChave(textoUsuario)) {
             respostaTexto = 'Escolha uma opção:\n1. Registrar Encomenda\n2. Consultar Encomendas\n3. Confirmar Recebimento';
             estadoUsuario.etapa = 'aguardandoEscolha';
           } else if (textoUsuario.includes('consultar')) {
@@ -148,3 +157,4 @@ app.post('/webhook', async (req, res) => {
 app.listen(porta, () => {
   console.log(`Assistente virtual rodando na porta ${porta}`);
 });
+                                     
