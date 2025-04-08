@@ -11,7 +11,7 @@ const URL_SHEETDB_ENCOMENDAS = 'https://sheetdb.io/api/v1/g6f3ljg6px6yr';
 let estadosUsuarios = {};
 
 function verificaPalavrasChave(texto) {
-  const palavrasChave = ['entrega', 'entregou', 'encomenda', 'recebi', 'chegou', 'chegada', 'vai chegar', 'está para chegar', 'alguém recebeu', 'quem recebeu'];
+  const palavrasChave = ['menu', '0', 'entrega', 'entregou', 'encomenda', 'recebi', 'chegou', 'chegada', 'vai chegar', 'está para chegar', 'alguém recebeu', 'quem recebeu'];
   return palavrasChave.some(p => texto.includes(p));
 }
 
