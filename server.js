@@ -11,7 +11,11 @@ const URL_SHEETDB_ENCOMENDAS = 'https://sheetdb.io/api/v1/g6f3ljg6px6yr';
 let estadosUsuarios = {};
 
 function verificaPalavrasChave(texto) {
-  const palavrasChave = ['menu', '0', 'entrega', 'entregou', 'encomenda', 'recebi', 'chegou', 'chegada', 'vai chegar', 'está para chegar', 'alguém recebeu', 'quem recebeu'];
+  const palavrasChave = [
+    'menu', '0', 'entrega', 'entregou', 'encomenda', 'recebi',
+    'chegou', 'chegada', 'vai chegar', 'está para chegar',
+    'alguém recebeu', 'quem recebeu'
+  ];
   return palavrasChave.some(p => texto.includes(p));
 }
 
@@ -24,12 +28,17 @@ app.post('/webhook', async (req, res) => {
 
   const permitidoDireto = ['Consultar Encomendas', 'Confirmar Recebimento'];
 
+  // Só inicia uma nova sessão se tiver palavras-chave ou for número do menu
   if (!estadosUsuarios[idSessao]) {
-    const ehNumero = !isNaN(parseInt(textoUsuario));
-    if (!verificaPalavrasChave(textoUsuario) && !permitidoDireto.includes(nomeIntent) && !ehNumero) {
-      return res.json({ fulfillmentText: '' });
+    const ehNumero = !isNaN(escolha);
+    const temPalavraChave = verificaPalavrasChave(textoUsuario);
+    const intencaoPermitida = permitidoDireto.includes(nomeIntent);
+
+    if (temPalavraChave || ehNumero || intencaoPermitida) {
+      estadosUsuarios[idSessao] = { etapa: 'menu' };
+    } else {
+      return res.json({ fulfillmentText: '' }); // Ignora mensagem fora do contexto
     }
-    estadosUsuarios[idSessao] = { etapa: 'menu' };
   }
 
   const estadoUsuario = estadosUsuarios[idSessao];
@@ -48,14 +57,16 @@ app.post('/webhook', async (req, res) => {
           } else if (escolha === 2) {
             const { data } = await axios.get(URL_SHEETDB_ENCOMENDAS);
             respostaTexto = data.length
-              ? data.map(e => `Nome: ${e.nome}\nData Estimada: ${e.data}\nCompra em: ${e.local}\nStatus: ${e.status}${e.recebido_por ? `\nRecebido por: ${e.recebido_por}` : ''}`).join('\n\n')
+              ? data.map(e =>
+                `Nome: ${e.nome}\nData Estimada: ${e.data}\nCompra em: ${e.local}\nStatus: ${e.status}${e.recebido_por ? `\nRecebido por: ${e.recebido_por}` : ''}`
+              ).join('\n\n')
               : 'Nenhuma encomenda encontrada.';
             delete estadosUsuarios[idSessao];
           } else if (escolha === 3) {
             estadoUsuario.etapa = 'confirmarNome';
             respostaTexto = 'De quem é essa encomenda?';
           } else {
-            respostaTexto = 'Desculpe, não entendi. Por favor, escolha uma das opções do menu.';
+            respostaTexto = 'Opção inválida. Por favor, escolha 1, 2 ou 3.';
           }
         } else {
           if (textoUsuario.includes('encomenda')) {
@@ -64,14 +75,16 @@ app.post('/webhook', async (req, res) => {
           } else if (textoUsuario.includes('consultar')) {
             const { data } = await axios.get(URL_SHEETDB_ENCOMENDAS);
             respostaTexto = data.length
-              ? data.map(e => `Nome: ${e.nome}\nData Estimada: ${e.data}\nCompra em: ${e.local}\nStatus: ${e.status}${e.recebido_por ? `\nRecebido por: ${e.recebido_por}` : ''}`).join('\n\n')
+              ? data.map(e =>
+                `Nome: ${e.nome}\nData Estimada: ${e.data}\nCompra em: ${e.local}\nStatus: ${e.status}${e.recebido_por ? `\nRecebido por: ${e.recebido_por}` : ''}`
+              ).join('\n\n')
               : 'Nenhuma encomenda encontrada.';
             delete estadosUsuarios[idSessao];
           } else if (textoUsuario.includes('confirmar') || textoUsuario.includes('recebi')) {
             estadoUsuario.etapa = 'confirmarNome';
             respostaTexto = 'De quem é essa encomenda?';
           } else {
-            respostaTexto = 'Desculpe, não entendi. Por favor, escolha uma das opções do menu.';
+            respostaTexto = 'Desculpe, não entendi. Envie "0" para ver o menu.';
           }
         }
         break;
