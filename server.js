@@ -70,9 +70,9 @@ app.post('/webhook', async (req, res) => {
           } else if (textoUsuario.includes('confirmar') || textoUsuario.includes('recebi')) {
             estadoUsuario.etapa = 'confirmarNome';
             respostaTexto = 'De quem é essa encomenda?';
-          } /*else {
-            respostaTexto = 'Opção inválida. Escolha entre 0, 1, 2 ou 3';
-          } */
+          } else {
+            respostaTexto = ';
+          } 
         }
         break;
 
