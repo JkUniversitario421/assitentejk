@@ -55,7 +55,7 @@ app.post('/webhook', async (req, res) => {
             estadoUsuario.etapa = 'confirmarNome';
             respostaTexto = 'De quem é essa encomenda?';
           } else {
-            respostaTexto = ' ';
+            respostaTexto = 'Opção não encontrada';
           }
         } else {
           if (textoUsuario.includes('encomenda')) {
