@@ -7,11 +7,9 @@ const porta = process.env.PORT || 3000;
 app.use(bodyParser.json());
 
 const URL_SHEETDB_ENCOMENDAS = 'https://sheetdb.io/api/v1/g6f3ljg6px6yr';
-const URL_SHEETDB_LUZ = 'https://sheetdb.io/api/v1/5m0rz0rmv8jmg';
 
 let estadosUsuarios = {};
 
-// Função para verificar palavras relacionadas a entrega
 function verificaPalavrasChave(texto) {
   const palavrasChave = ['entrega', 'entregou', 'encomenda', 'recebi', 'chegou', 'chegada', 'vai chegar', 'está para chegar', 'alguém recebeu', 'quem recebeu'];
   return palavrasChave.some(p => texto.includes(p));
@@ -24,12 +22,12 @@ app.post('/webhook', async (req, res) => {
   const escolha = parseInt(textoUsuario, 10);
   let respostaTexto = '';
 
-  // Permitir execução direta para essas intenções
   const permitidoDireto = ['Consultar Encomendas', 'Confirmar Recebimento'];
 
   if (!estadosUsuarios[idSessao]) {
-    if (!verificaPalavrasChave(textoUsuario) && !permitidoDireto.includes(nomeIntent)) {
-      return res.json({ fulfillmentText: '' }); // ignora se não for sobre entrega
+    const ehNumero = !isNaN(parseInt(textoUsuario));
+    if (!verificaPalavrasChave(textoUsuario) && !permitidoDireto.includes(nomeIntent) && !ehNumero) {
+      return res.json({ fulfillmentText: '' });
     }
     estadosUsuarios[idSessao] = { etapa: 'menu' };
   }
@@ -56,9 +54,6 @@ app.post('/webhook', async (req, res) => {
           } else if (escolha === 3) {
             estadoUsuario.etapa = 'confirmarNome';
             respostaTexto = 'De quem é essa encomenda?';
-          } else if (escolha === 4) {
-            estadoUsuario.etapa = 'obterNomeLuz';
-            respostaTexto = 'Qual o seu nome para registrar a conta de luz?';
           } else {
             respostaTexto = 'Opção inválida. Escolha entre 0, 1, 2 ou 3';
           }
@@ -125,21 +120,6 @@ app.post('/webhook', async (req, res) => {
         } else {
           respostaTexto = `Nenhuma encomenda pendente encontrada para ${estadoUsuario.nomeConfirmado}.`;
         }
-        delete estadosUsuarios[idSessao];
-        break;
-
-      case 'obterNomeLuz':
-        estadoUsuario.nome = textoUsuario;
-        estadoUsuario.etapa = 'obterValorLuz';
-        respostaTexto = 'Qual o valor da conta de luz?';
-        break;
-
-      case 'obterValorLuz':
-        await axios.post(URL_SHEETDB_LUZ, [{
-          nome: estadoUsuario.nome,
-          valor: textoUsuario
-        }]);
-        respostaTexto = `Conta de luz registrada:\nNome: ${estadoUsuario.nome}\nValor: R$ ${textoUsuario}`;
         delete estadosUsuarios[idSessao];
         break;
 
