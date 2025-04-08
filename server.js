@@ -11,12 +11,12 @@ const URL_SHEETDB_LUZ = 'https://sheetdb.io/api/v1/5m0rz0rmv8jmg';
 
 let estadosUsuarios = {};
 
-// Função para detectar palavras relacionadas a encomendas/entregas
+// Só ativa o bot se houver palavras-chave de interesse
 function verificaPalavrasChave(texto) {
   const palavrasChave = [
     'encomenda', 'entrega', 'chegou', 'chegar', 'chegada',
     'recebi', 'recebida', 'recebido', 'entregou', 'trouxe',
-    'vai chegar', 'foi entregue', 'pode receber'
+    'vai chegar', 'foi entregue', 'pode receber', 'confirmar recebimento'
   ];
   return palavrasChave.some(palavra => texto.includes(palavra));
 }
@@ -27,6 +27,11 @@ app.post('/webhook', async (req, res) => {
   const parametros = req.body.queryResult.parameters;
   const escolha = parseInt(textoUsuario, 10);
   let respostaTexto = '';
+
+  if (!estadosUsuarios[idSessao] && !verificaPalavrasChave(textoUsuario)) {
+    // Ignora mensagens não relacionadas
+    return res.json({ fulfillmentText: '' });
+  }
 
   if (!estadosUsuarios[idSessao]) {
     estadosUsuarios[idSessao] = { etapa: 'menu' };
@@ -54,63 +59,51 @@ app.post('/webhook', async (req, res) => {
           } else if (escolha === 3) {
             estadoUsuario.etapa = 'confirmarNome';
             respostaTexto = 'De quem é essa encomenda?';
-          } else if (escolha === 4) {
-            estadoUsuario.etapa = 'obterNomeLuz';
-            respostaTexto = 'Qual o seu nome para registrar a conta de luz?';
           } else {
-            respostaTexto = 'Opção inválida. Escolha entre 0, 1, 2 ou 3';
+            respostaTexto = 'Opção inválida. Escolha entre 1, 2 ou 3.';
           }
         } else {
           if (verificaPalavrasChave(textoUsuario)) {
             respostaTexto = 'Escolha uma opção:\n1. Registrar Encomenda\n2. Consultar Encomendas\n3. Confirmar Recebimento';
             estadoUsuario.etapa = 'aguardandoEscolha';
-          } else if (textoUsuario.includes('consultar')) {
-            const { data } = await axios.get(URL_SHEETDB_ENCOMENDAS);
-            respostaTexto = data.length
-              ? data.map(e => `Nome: ${e.nome}\nData Estimada: ${e.data}\nCompra em: ${e.local}\nStatus: ${e.status}${e.recebido_por ? `\nRecebido por: ${e.recebido_por}` : ''}`).join('\n\n')
-              : 'Nenhuma encomenda encontrada.';
-            delete estadosUsuarios[idSessao];
-          } else if (textoUsuario.includes('confirmar') || textoUsuario.includes('recebi')) {
-            estadoUsuario.etapa = 'confirmarNome';
-            respostaTexto = 'De quem é essa encomenda?';
           } else {
-            respostaTexto = 'Opção inválida. Escolha entre 0, 1, 2 ou 3';
+            respostaTexto = '';
           }
         }
         break;
 
       case 'obterNome':
-        estadoUsuario.nome = req.body.queryResult.queryText;
+        estadoUsuario.nome = textoUsuario;
         estadoUsuario.etapa = 'obterData';
         respostaTexto = 'Qual a data estimada de entrega? (Ex: dia/mês/ano)';
         break;
 
       case 'obterData':
-        estadoUsuario.data = req.body.queryResult.queryText;
+        estadoUsuario.data = textoUsuario;
         estadoUsuario.etapa = 'obterLocal';
-        respostaTexto = 'Onde a compra foi realizada? (Ex: Amazon, Mercado Livre, Farmácia Delivery)';
+        respostaTexto = 'Onde a compra foi realizada? (Ex: Amazon, Mercado Livre)';
         break;
 
       case 'obterLocal':
-        estadoUsuario.local = req.body.queryResult.queryText;
+        estadoUsuario.local = textoUsuario;
         await axios.post(URL_SHEETDB_ENCOMENDAS, [{
           nome: estadoUsuario.nome,
           data: estadoUsuario.data,
           local: estadoUsuario.local,
           status: 'Aguardando Recebimento'
         }]);
-        respostaTexto = `Ok, ${estadoUsuario.nome}! Sua encomenda chegará no dia ${estadoUsuario.data} e foi comprada em ${estadoUsuario.local}.`;
+        respostaTexto = `Ok, ${estadoUsuario.nome}! Sua encomenda está registrada para o dia ${estadoUsuario.data}, compra feita em ${estadoUsuario.local}.`;
         delete estadosUsuarios[idSessao];
         break;
 
       case 'confirmarNome':
-        estadoUsuario.nomeConfirmado = req.body.queryResult.queryText;
+        estadoUsuario.nomeConfirmado = textoUsuario;
         estadoUsuario.etapa = 'confirmarRecebedor';
         respostaTexto = 'Quem está recebendo a encomenda?';
         break;
 
       case 'confirmarRecebedor':
-        const recebidoPor = req.body.queryResult.queryText;
+        const recebidoPor = textoUsuario;
         const { data: lista } = await axios.get(URL_SHEETDB_ENCOMENDAS);
         const encomenda = lista.find(e => e.nome === estadoUsuario.nomeConfirmado && e.status === 'Aguardando Recebimento');
 
@@ -126,28 +119,13 @@ app.post('/webhook', async (req, res) => {
         delete estadosUsuarios[idSessao];
         break;
 
-      case 'obterNomeLuz':
-        estadoUsuario.nome = req.body.queryResult.queryText;
-        estadoUsuario.etapa = 'obterValorLuz';
-        respostaTexto = 'Qual o valor da conta de luz?';
-        break;
-
-      case 'obterValorLuz':
-        await axios.post(URL_SHEETDB_LUZ, [{
-          nome: estadoUsuario.nome,
-          valor: req.body.queryResult.queryText
-        }]);
-        respostaTexto = `Conta de luz registrada:\nNome: ${estadoUsuario.nome}\nValor: R$ ${req.body.queryResult.queryText}`;
-        delete estadosUsuarios[idSessao];
-        break;
-
       default:
-        respostaTexto = 'Algo deu errado, tente novamente.';
+        respostaTexto = 'Algo deu errado. Tente novamente.';
         delete estadosUsuarios[idSessao];
     }
-  } catch (error) {
-    console.error('Erro:', error);
-    respostaTexto = 'Ocorreu um erro, tente novamente mais tarde.';
+  } catch (erro) {
+    console.error('Erro:', erro.message);
+    respostaTexto = 'Houve um problema ao processar sua solicitação.';
     delete estadosUsuarios[idSessao];
   }
 
@@ -155,6 +133,5 @@ app.post('/webhook', async (req, res) => {
 });
 
 app.listen(porta, () => {
-  console.log(`Assistente virtual rodando na porta ${porta}`);
+  console.log(`Assistente rodando na porta ${porta}`);
 });
-                                     
