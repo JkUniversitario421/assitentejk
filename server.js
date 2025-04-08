@@ -55,7 +55,7 @@ app.post('/webhook', async (req, res) => {
             estadoUsuario.etapa = 'confirmarNome';
             respostaTexto = 'De quem é essa encomenda?';
           } else {
-            respostaTexto = 'Opção inválida. Escolha entre 0, 1, 2 ou 3';
+            respostaTexto = ' ';
           }
         } else {
           if (textoUsuario.includes('encomenda')) {
