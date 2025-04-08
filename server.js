@@ -54,11 +54,9 @@ app.post('/webhook', async (req, res) => {
           } else if (escolha === 3) {
             estadoUsuario.etapa = 'confirmarNome';
             respostaTexto = 'De quem é essa encomenda?';
-          } 
           } else {
-          respostaTexto = 'Desculpe, não entendi. Por favor, escolha uma das opções do menu.';
-            }
-
+            respostaTexto = 'Desculpe, não entendi. Por favor, escolha uma das opções do menu.';
+          }
         } else {
           if (textoUsuario.includes('encomenda')) {
             respostaTexto = 'Escolha uma opção:\n1. Registrar Encomenda\n2. Consultar Encomendas\n3. Confirmar Recebimento';
@@ -73,8 +71,8 @@ app.post('/webhook', async (req, res) => {
             estadoUsuario.etapa = 'confirmarNome';
             respostaTexto = 'De quem é essa encomenda?';
           } else {
-            respostaTexto = ';
-          } 
+            respostaTexto = 'Desculpe, não entendi. Por favor, escolha uma das opções do menu.';
+          }
         }
         break;
 
